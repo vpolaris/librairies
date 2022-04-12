@@ -1,0 +1,31 @@
+# built command with check enable (take a long time to process)
+# sudo docker build --no-cache --build-arg CHECK=1 -t libmnl -f ./libmnl .
+# built command without check
+# sudo docker build --rm --no-cache --squash --build-arg CHECK=0 -t libmnl -f ./libmnl .
+
+FROM devtools as git-clone-libmnl
+RUN git clone git://git.netfilter.org/libmnl /tmp/libmnl \
+    && cd /tmp/libmnl \
+    && echo "compiling libmnl $( git describe --abbrev=0)" \
+    && git checkout $(git describe --tags $(git rev-list --tags --max-count=1)) \
+    && git submodule update --init --recursive
+
+FROM git-clone-libmnl as libmnl-compile
+
+ENV PKG_CONFIG_PATH=/usr/local/ssl/lib/pkgconfig
+ARG CHECK=0
+RUN mkdir /usr/local/libmnl \
+    && ldconfig \
+    && cd /tmp/libmnl \
+    && ./autogen.sh \
+    && ./configure --disable-static --with-pic --with-gnu-ld --prefix=/usr/local/libmnl \
+    && make -j "$(nproc)" \
+    && if [ ${CHECK} -eq 1 ];then make check; fi \
+    && make install \
+    && echo "/usr/local/libmnl/lib" | tee /etc/ld.so.conf.d/libmnl.conf
+    
+FROM scratch
+COPY --from=libmnl-compile /usr/local/libmnl /usr/local/libmnl
+COPY --from=libmnl-compile /usr/local/libmnl/lib/pkgconfig/* /usr/lib64/pkgconfig/
+COPY --from=libmnl-compile /etc/ld.so.conf.d/libmnl.conf /etc/ld.so.conf.d/libmnl.conf
+    
