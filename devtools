@@ -1,0 +1,9 @@
+# built command without check
+# sudo docker build --rm --no-cache --squash -t devtools -f ./devtools .
+FROM amazon:base as base
+#https://cdn.amazonlinux.com/os-images/latest/
+
+FROM base as devtools
+RUN yum -y groups install "Development Tools" \
+    && mkdir /etc/compiled_versions \
+    && yum -y update
