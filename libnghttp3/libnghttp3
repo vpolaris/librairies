@@ -1,0 +1,46 @@
+# built command with check enable (take a long time to process)
+# sudo docker build --no-cache --build-arg CHECK=1 -t nghttp3 -f ./nghttp3 .
+# built command without check
+# sudo docker build --rm --no-cache --squash --build-arg CHECK=0 -t nghttp3 -f ./nghttp3 .
+
+#INFO: nghttp3 is an implementation of HTTP/3 mapping over QUIC and QPACK in C.
+
+FROM vpolaris/librairies:devtools as c-ares-dependencies
+    
+RUN yum -y install CUnit CUnit-devel
+
+FROM nghttp3-dependencies as nghttp3-clone
+ARG NAME=nghttp3
+ARG VERSION="latest"
+
+RUN git clone https://github.com/ngtcp2/nghttp3 "/tmp/${NAME}" \
+    && cd "/tmp/${NAME}" \
+    && if [ ${VERSION}=="latest" ];then \
+        VERSION=$(git describe --tags $(git rev-list --tags --max-count=1)) \
+    ;fi \
+    && touch "/etc/compiled_versions/${NAME}.${VERSION}" \
+    && git checkout "${VERSION}" \
+    && git submodule update --init --recursive
+
+FROM nghttp3-clone as nghttp3-compile
+ARG NAME=nghttp3
+ENV PKG_CONFIG_PATH=/usr/local/ssl/lib/pkgconfig:/usr/lib64/pkgconfig
+ARG CHECK=0
+RUN mkdir "/usr/local/${NAME}" \
+    && ldconfig \
+    && cd "/tmp/${NAME}" \
+    && autoreconf -fi \
+    && ./configure --disable-static --with-pic --with-gnu-ld \
+        --prefix="/usr/local/${NAME}"  \
+    && make -j "$(nproc)" \
+    && if [ ${CHECK} -eq 1 ];then make check -j "$(nproc)"; fi \
+    && make install \
+    && echo "/usr/local/${NAME}/lib" | tee "/etc/ld.so.conf.d/${NAME}.conf"
+    
+FROM scratch
+ARG NAME=nghttp3
+COPY --from=nghttp3-compile "/usr/local/${NAME}" "/usr/local/${NAME}"
+COPY --from=nghttp3-compile "/etc/compiled_versions" "/etc/compiled_versions"
+COPY --from=nghttp3-compile "/usr/local/${NAME}/lib/pkgconfig/*" "/usr/lib64/pkgconfig/"
+COPY --from=nghttp3-compile "/etc/ld.so.conf.d/${NAME}.conf" "/etc/ld.so.conf.d/${NAME}.conf"
+    
