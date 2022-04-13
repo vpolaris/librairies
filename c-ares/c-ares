@@ -9,7 +9,7 @@
 
 #INFO: c-ares is a C library for asynchronous DNS requests (including name resolves)
 
-FROM devtools as c-ares-dependencies
+FROM vpolaris/librairies:devtools as c-ares-dependencies
     
 ARG NONE=none
 
