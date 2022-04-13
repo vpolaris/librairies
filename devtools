@@ -1,5 +1,8 @@
 # built command without check
 # sudo docker build --rm --no-cache --squash -t devtools -f ./devtools .
+
+# Build Development Environment on top of amazon linux 2
+
 FROM vpolaris/amazon:base as base
 #https://cdn.amazonlinux.com/os-images/latest/
 
