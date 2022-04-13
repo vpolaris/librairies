@@ -1,4 +1,4 @@
-name: Compile c-ares librairies
+name: Build development environment
 
 
 on:
