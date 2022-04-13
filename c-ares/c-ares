@@ -1,0 +1,50 @@
+# built command with check enable (take a long time to process)
+# sudo docker build --no-cache --build-arg CHECK=1 -t c-ares -f ./c-ares .
+# built command without check
+# sudo docker build --rm --no-cache --squash --build-arg CHECK=0 -t c-ares -f ./c-ares .
+
+#
+# !!! Warning need IPV6 container to run test without failure !!!
+#https://medium.com/@skleeschulte/how-to-enable-ipv6-for-docker-containers-on-ubuntu-18-04-c68394a219a2
+
+#INFO: c-ares is a C library for asynchronous DNS requests (including name resolves)
+
+FROM devtools as c-ares-dependencies
+    
+ARG NONE=none
+
+FROM c-ares-dependencies as c-ares-clone
+ARG NAME=c-ares
+ARG VERSION="latest"
+
+RUN git clone https://github.com/c-ares/c-ares "/tmp/${NAME}" \
+    && cd "/tmp/${NAME}" \
+    && if [ ${VERSION}=="latest" ];then \
+        VERSION=$(git describe --tags $(git rev-list --tags --max-count=1)) \
+    ;fi \
+    && touch "/etc/compiled_versions/${NAME}.${VERSION}" \
+    && git checkout "${VERSION}" \
+    && git submodule update --init --recursive
+
+FROM c-ares-clone as c-ares-compile
+ARG NAME=c-ares
+ENV PKG_CONFIG_PATH=/usr/local/ssl/lib/pkgconfig:/usr/lib64/pkgconfig
+ARG CHECK=0
+RUN mkdir "/usr/local/${NAME}" \
+    && ldconfig \
+    && cd "/tmp/${NAME}" \
+    && autoreconf -fi \
+    && ./configure --disable-static --with-pic --with-gnu-ld \
+        --prefix="/usr/local/${NAME}"  \
+    && make -j "$(nproc)" \
+    && if [ ${CHECK} -eq 1 ];then make check -j "$(nproc)"; fi \
+    && make install \
+    && echo "/usr/local/${NAME}/lib" | tee "/etc/ld.so.conf.d/${NAME}.conf"
+    
+FROM scratch
+ARG NAME=c-ares
+COPY --from=c-ares-compile "/usr/local/${NAME}" "/usr/local/${NAME}"
+COPY --from=c-ares-compile "/etc/compiled_versions" "/etc/compiled_versions"
+COPY --from=c-ares-compile "/usr/local/${NAME}/lib/pkgconfig/*" "/usr/lib64/pkgconfig/"
+COPY --from=c-ares-compile "/etc/ld.so.conf.d/${NAME}.conf" "/etc/ld.so.conf.d/${NAME}.conf"
+    
