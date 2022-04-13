@@ -42,7 +42,7 @@ jobs:
           file: ./c-ares/c-ares
           builder: ${{ steps.buildx.outputs.name }}
           push: true
-          tags: vpolaris/librairies:latest
+          tags: vpolaris/librairies:c-ares
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache
       -
