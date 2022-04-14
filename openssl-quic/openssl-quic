@@ -4,7 +4,7 @@
 # sudo docker build --rm --no-cache --squash --build-arg CHECK=0 -t openssl-quick -f ./openssl-quic .
 
 #INFO: This fork adds APIs that can be used by QUIC implementations for connection handshakes. Quoting the IETF Working group charter, QUIC is a "UDP-based, stream-multiplexing, encrypted transport protocol." If you don't need QUIC, you should use the official OpenSSL distributions.
-
+#Last run: 14/04/2022
 
 
 FROM vpolaris/librairies:devtools as openssl-dependencies
