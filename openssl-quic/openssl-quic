@@ -7,7 +7,7 @@
 
 
 
-FROM vpolaris/librairies:devtool as openssl-dependencies
+FROM vpolaris/librairies:devtools as openssl-dependencies
 RUN yum -y install perl-core pcre-devel zlib-devel
 
 FROM openssl-dependencies as openssl-clone
