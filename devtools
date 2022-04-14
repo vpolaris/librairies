@@ -8,7 +8,7 @@
 FROM vpolaris/amazon:base as base
 
 FROM base as devtools
-RUN && yum -y update \
+RUN yum -y update \
     && yum -y groups install "Development Tools" \
     && mkdir /etc/compiled_versions \
     && yum clean all
