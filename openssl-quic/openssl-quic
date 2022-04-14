@@ -1,0 +1,44 @@
+# built command with check enable (take a long time to process)
+# sudo docker build --no-cache --build-arg CHECK=1 -t openssl-quic -f ./openssl-quic .
+# built command without check
+# sudo docker build --rm --no-cache --squash --build-arg CHECK=0 -t openssl-quick -f ./openssl-quic .
+
+#INFO: This fork adds APIs that can be used by QUIC implementations for connection handshakes. Quoting the IETF Working group charter, QUIC is a "UDP-based, stream-multiplexing, encrypted transport protocol." If you don't need QUIC, you should use the official OpenSSL distributions.
+
+
+
+FROM devtools as openssl-dependencies
+RUN yum -y install perl-core pcre-devel zlib-devel
+
+FROM openssl-dependencies as openssl-clone
+ARG NAME=ssl
+ARG VERSION="1_1_1n"
+
+RUN git clone --depth 1 -b "OpenSSL_${VERSION}+quic" https://github.com/quictls/openssl "/tmp/${NAME}" \
+    && cd "/tmp/${NAME}" \
+    && touch "/etc/compiled_versions/${NAME}.${VERSION}" \
+    && git submodule update --init --recursive
+
+FROM openssl-clone as openssl-compile
+ARG NAME=ssl
+ENV PKG_CONFIG_PATH=/usr/lib64/pkgconfig
+ARG CHECK=0
+RUN mkdir "/usr/local/${NAME}" \
+    && ldconfig \
+    && cd "/tmp/${NAME}" \
+    && ./config --prefix="/usr/local/${NAME}" \
+         --openssldir=/etc/ssl \
+         shared \   
+         enable-tls1_3 \
+         zlib-dynamic \
+    && make -j "$(nproc)" \
+    && if [ ${CHECK} -eq 1 ];then make test -j "$(nproc)"; fi \
+    && make install_sw \
+    && echo "/usr/local/${NAME}/lib" | tee "/etc/ld.so.conf.d/${NAME}.conf"
+    
+FROM scratch
+ARG NAME=ssl
+COPY --from=openssl-compile "/usr/local/${NAME}" "/usr/local/${NAME}"
+COPY --from=openssl-compile "/etc/compiled_versions" "/etc/compiled_versions"
+COPY --from=openssl-compile "/usr/local/${NAME}/lib/pkgconfig/*" "/usr/lib64/pkgconfig/"
+COPY --from=openssl-compile "/etc/ld.so.conf.d/${NAME}.conf" "/etc/ld.so.conf.d/${NAME}.conf"
