@@ -3,7 +3,8 @@
 # built command without check
 # sudo docker build --rm --no-cache --squash --build-arg CHECK=0 -t nghttp3 -f ./nghttp3 .
 
-#INFO: nghttp3 is an implementation of HTTP/3 mapping over QUIC and QPACK in C.
+# INFO: nghttp3 is an implementation of HTTP/3 mapping over QUIC and QPACK in C.
+# Support amd64 and arm64 architecture
 
 FROM vpolaris/librairies:devtools as nghttp3-dependencies
     
