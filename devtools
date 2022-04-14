@@ -1,14 +1,14 @@
 # built command without check
 # sudo docker build --rm --no-cache --squash -t devtools -f ./devtools .
 
-# Build Development Environment on top of amazon linux 2 
+# Build Development Environment on top of amazon linux 2
+# https://cdn.amazonlinux.com/os-images/latest/
 # Support amd64 and arm64 architecture
 
 FROM vpolaris/amazon:base as base
-#https://cdn.amazonlinux.com/os-images/latest/
 
 FROM base as devtools
-RUN yum -y groups install "Development Tools" \
+RUN && yum -y update \
+    && yum -y groups install "Development Tools" \
     && mkdir /etc/compiled_versions \
-    && yum -y update \
     && yum clean all
