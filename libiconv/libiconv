@@ -1,0 +1,65 @@
+# built command with check enable (take a long time to process)
+# sudo docker build --build-arg CHECK=1 -t libiconv -f ./libiconv .
+# sudo podman build --build-arg CHECK=1 -t libiconv -f ./libiconv .
+# built command without check
+# sudo docker build -rm --no-cache --squash --build-arg CHECK=0 -t libiconv -f ./libiconv .
+# sudo podman build --no-cache --squash-all --build-arg CHECK=0 -t libiconv -f ./libiconv .
+
+# INFO: This library provides an iconv() implementation, for use on systems which don't have one, or whose implementation cannot convert from/to Unicode. 
+# Last push : 22/04/2022 16:25:00
+
+# FROM autoconf as autoconf
+# FROM automake as automake
+
+FROM vpolaris/librairies:devtools as libiconv-dependencies
+
+# COPY --from=autoconf / /
+# COPY --from=automake / /
+
+FROM libiconv-dependencies as libiconv-download
+
+ARG NAME=libiconv
+ARG VERSION=latest
+ARG GNU_ARCHIVE="${NAME}.tar.gz"
+ARG GNU_URL_BASE="https://ftp.gnu.org/gnu/${NAME}/"
+ARG SRC_DIRECTORY="/usr/src/${NAME}"
+
+RUN curl -sSL -o keyring.gpg  https://ftp.gnu.org/gnu/gnu-keyring.gpg \
+    && if [ ${VERSION}=="latest" ];then \
+        curl -sSL -o gnu.page ${GNU_URL_BASE} \
+        && list=$(sed -r  's/.*<a href=\"(.*)\">.*<\/a>.*$/\1/g' gnu.page | grep 'gz' |tail -2) \
+        && archive=$(grep -v 'sig' <<<"$list") \
+        && sign=$(grep 'sig' <<<"$list") \
+        && curl -sSL -o "${GNU_ARCHIVE}" "${GNU_URL_BASE}${archive}" \
+        && curl -sSL -o "${GNU_ARCHIVE}.sig" "${GNU_URL_BASE}${sign}" \
+      ;else \
+        curl -sSL -o "${GNU_ARCHIVE}" "${GNU_URL_BASE}${NAME}-${VERSION}.tar.gz" \
+        && curl -sSL -o "${GNU_ARCHIVE}.sig" "${GNU_URL_BASE}${NAME}-${VERSION}.tar.gz.sig" \
+      ;fi
+
+RUN if [ $(gpg --verify --keyring ./keyring.gpg "${GNU_ARCHIVE}.sig";echo $?) -eq 0 ];then \
+        mkdir -p "${SRC_DIRECTORY}" \
+        && tar -xzC "${SRC_DIRECTORY}" --strip-components=1 -f "${GNU_ARCHIVE}" \
+        && rm -f "${GNU_ARCHIVE}" "${GNU_ARCHIVE}.sig" "gnu.page" "keyring.gpg"\
+        && touch "/etc/compiled_versions/${NAME}.${VERSION}" \
+   ;fi 
+
+FROM libiconv-download as libiconv-compile
+
+ARG NAME=libiconv
+ARG SRC_DIRECTORY="/usr/src/${NAME}"
+ARG CHECK=0
+RUN mkdir "/usr/local/${NAME}" \
+    && ldconfig \
+    && cd "${SRC_DIRECTORY}" \
+    && ./configure --disable-static --with-pic --with-gnu-ld --prefix="/usr/local/${NAME}" \
+    && make -j "$(nproc)" \
+    && if [ ${CHECK} -eq 1 ];then make check -j "$(nproc)"; fi \
+    && make install \
+    && echo "/usr/local/${NAME}/lib" | tee "/etc/ld.so.conf.d/${NAME}.conf"
+    
+FROM scratch
+ARG NAME=libiconv
+COPY --from=libiconv-compile "/usr/local/${NAME}" "/usr/local/${NAME}"
+COPY --from=libiconv-compile /etc/compiled_versions /etc/compiled_versions
+COPY --from=libiconv-compile "/etc/ld.so.conf.d/${NAME}.conf" "/etc/ld.so.conf.d/${NAME}.conf"
