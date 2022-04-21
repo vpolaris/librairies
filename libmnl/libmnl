@@ -1,31 +1,57 @@
 # built command with check enable (take a long time to process)
-# sudo docker build --no-cache --build-arg CHECK=1 -t libmnl -f ./libmnl .
+# sudo docker build --build-arg CHECK=1 -t libmnl -f ./libmnl .
+# sudo podman build --build-arg CHECK=1 -t libmnl -f ./libmnl .
 # built command without check
-# sudo docker build --rm --no-cache --squash --build-arg CHECK=0 -t libmnl -f ./libmnl .
+# sudo docker build -rm --no-cache --squash --build-arg CHECK=0 -t libmnl -f ./libmnl .
+# sudo podman build --no-cache --squash-all --build-arg CHECK=0 -t libmnl -f ./libmnl .
 
-FROM devtools as git-clone-libmnl
-RUN git clone git://git.netfilter.org/libmnl /tmp/libmnl \
-    && cd /tmp/libmnl \
-    && echo "compiling libmnl $( git describe --abbrev=0)" \
-    && git checkout $(git describe --tags $(git rev-list --tags --max-count=1)) \
+# INFO: libmnl is a minimalistic user-space library oriented to Netlink developers. 
+# Last update : 22/04/2022 17:00:00
+
+FROM vpolaris/librairies:libiconv as libiconv
+FROM vpolaris/librairies:devtools as libmnl-dependencies
+
+COPY --from=libiconv / /
+
+FROM libmnl-dependencies as libmnl-clone
+
+ARG NAME="libmn"l
+ARG VERSION="latest"
+ARG SRC_DIRECTORY="/tmp/${NAME}"
+
+RUN git clone  https://git.netfilter.org/libmnl "${SRC_DIRECTORY}" \
+    && cd "/tmp/${NAME}" \
+    && if [ ${VERSION} == "latest" ];then \
+        VERSION=$(git describe --tags $(git rev-list --tags --max-count=1)) \
+    ;fi \
+    && touch "/etc/compiled_versions/${NAME}.${VERSION}" \
+    && git checkout "${VERSION}" \
     && git submodule update --init --recursive
 
-FROM git-clone-libmnl as libmnl-compile
+FROM libmnl-clone as libmnl-compile
 
-ENV PKG_CONFIG_PATH=/usr/local/ssl/lib/pkgconfig
+ARG NAME="libmnl"
+ARG SRC_DIRECTORY="/tmp/${NAME}"
+# ARG CFLAGS="-I/usr/local/libiconv/include/"
+# ARG LIBS="-L/usr/local/libiconv/lib"
+# ARG LDFLAGS="-L/usr/local/libiconv/lib"
+ENV PKG_CONFIG_PATH="/usr/lib64/pkgconfig"
 ARG CHECK=0
-RUN mkdir /usr/local/libmnl \
+
+RUN mkdir "/usr/local/${NAME}" \
     && ldconfig \
-    && cd /tmp/libmnl \
+    && cd "${SRC_DIRECTORY}" \ 
     && ./autogen.sh \
-    && ./configure --disable-static --with-pic --with-gnu-ld --prefix=/usr/local/libmnl \
+    && ./configure --disable-static --with-pic --with-gnu-ld --prefix="/usr/local/${NAME}" \
     && make -j "$(nproc)" \
-    && if [ ${CHECK} -eq 1 ];then make check; fi \
+    && if [ ${CHECK} -eq 1 ];then make check -j "$(nproc)"; fi \
     && make install \
-    && echo "/usr/local/libmnl/lib" | tee /etc/ld.so.conf.d/libmnl.conf
+    && echo "/usr/local/${NAME}/lib" | tee "/etc/ld.so.conf.d/${NAME}.conf"
     
 FROM scratch
-COPY --from=libmnl-compile /usr/local/libmnl /usr/local/libmnl
-COPY --from=libmnl-compile /usr/local/libmnl/lib/pkgconfig/* /usr/lib64/pkgconfig/
-COPY --from=libmnl-compile /etc/ld.so.conf.d/libmnl.conf /etc/ld.so.conf.d/libmnl.conf
+ARG NAME="libmnl"
+COPY --from=libmnl-compile "/usr/local/${NAME}" "/usr/local/${NAME}"
+COPY --from=libmnl-compile "/etc/compiled_versions" "/etc/compiled_versions"
+COPY --from=libmnl-compile "/usr/local/${NAME}/lib/pkgconfig/*" "/usr/lib64/pkgconfig/"
+COPY --from=libmnl-compile "/etc/ld.so.conf.d/${NAME}.conf" "/etc/ld.so.conf.d/${NAME}.conf"
     
