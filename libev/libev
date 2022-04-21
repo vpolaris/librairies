@@ -1,0 +1,64 @@
+# sudo docker build -t libev -f ./libev .
+# built command with check enable (take a long time to process)
+# sudo docker build --build-arg CHECK=1 -t libev -f ./libev .
+# sudo podman build --build-arg CHECK=1 -t libev -f ./libev .
+# built command without check
+# sudo docker build --rm --no-cache --squash --build-arg CHECK=0 -t libev -f ./libev .
+# sudo podman build --rm --no-cache --squash-all --build-arg CHECK=0 -t libev -f ./libev .
+
+# INFO: A full-featured and high-performance (see benchmark) event loop that is loosely modelled after libevent, but without its limitations and bugs
+# Last update: 15/04/2022
+
+FROM vpolaris/librairies:libmd as libmd
+FROM vpolaris/librairies:libbsd as libbsd
+FROM vpolaris/librairies:libevent as libevent
+# FROM signify as signify
+FROM vpolaris/librairies:devtools as libev-dependencies
+
+COPY --from=libbsd / /
+COPY --from=libmd / /
+COPY --from=libevent / /
+# COPY --from=signify / /
+
+FROM libev-dependencies as libev-download
+ARG NAME=libev
+ARG LIBEV_GPG_KEY="EDFAA3F2CA4E6EB05681AF8E9F6F1C2D7E045F8D"
+ARG VERSION=4.33
+ARG LIBEV_ARCHIVE=libev.tar.gz
+ARG SRC_DIRECTORY="/tmp/${NAME}"
+
+
+RUN curl -sSL -o ${LIBEV_ARCHIVE} "http://dist.schmorp.de/libev/libev-${VERSION}.tar.gz" \
+    && curl -sSL -o ${LIBEV_ARCHIVE}.sig "http://dist.schmorp.de/libev/libev-${VERSION}.tar.gz.sig" \
+    && curl -sSL -o signing-key.pub "http://dist.schmorp.de/signing-key.pub.gpg.sig" \
+    # && if [ $(/usr/bin/signify -V -p signing-key.pub -m ${LIBEV_ARCHIVE};echo $?) -eq 0  ];then \ 
+            && mkdir -p "${SRC_DIRECTORY}" \
+            && tar -xzC "${SRC_DIRECTORY}" --strip-components=1 -f "${LIBEV_ARCHIVE}" \
+            && rm -f "${LIBEV_ARCHIVE}" \
+            && touch "/etc/compiled_versions/${NAME}.${VERSION}" 
+       # ;fi        
+
+FROM libev-download as libev-compile
+ARG NAME=libev
+ARG SRC_DIRECTORY="/tmp/${NAME}"
+# ARG CFLAGS="-I/usr/local/libevent/include/"
+# ARG LIBS="-L/usr/local/libevent/lib"
+# ARG LDFLAGS="-L/usr/local/libevent/lib"
+ENV PKG_CONFIG_PATH="/usr/lib64/pkgconfig"
+ARG CHECK=0
+RUN mkdir "/usr/local/${NAME}" \
+    && ldconfig \
+    && cd "${SRC_DIRECTORY}" \ 
+    && chmod u+x autogen.sh && ./autogen.sh \
+    && ./configure --disable-static --with-pic --with-gnu-ld --prefix=/usr/local/libev \
+    && make -j "$(nproc)" \
+    && if [ ${CHECK} -eq 1 ];then make check -j "$(nproc)"; fi \
+    && make install \
+    && echo "/usr/local/${NAME}/lib" | tee "/etc/ld.so.conf.d/${NAME}.conf"
+    
+FROM scratch
+ARG NAME=libev
+COPY --from=libev-compile "/usr/local/${NAME}" "/usr/local/${NAME}"
+COPY --from=libev-compile "/etc/compiled_versions" "/etc/compiled_versions"
+# COPY --from=libev-compile "/usr/local/${NAME}/lib/pkgconfig/*" "/usr/lib64/pkgconfig/"
+COPY --from=libev-compile "/etc/ld.so.conf.d/${NAME}.conf" "/etc/ld.so.conf.d/${NAME}.conf"
