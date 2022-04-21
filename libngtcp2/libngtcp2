@@ -13,7 +13,7 @@ FROM vpolaris/librairies:libev as libev
 FROM vpolaris/librairies:libevent as libevent
 FROM vpolaris/librairies:libiconv as libiconv
 FROM vpolaris/librairies:libxml2 as libxml2
-FROM vpolaris/librairies:nghttp3 as nghttp3
+FROM vpolaris/librairies:libnghttp3 as libnghttp3
 FROM vpolaris/librairies:openssl-quic as openssl
 FROM vpolaris/librairies:devtools as libngtcp2-dependencies
     
@@ -21,7 +21,7 @@ FROM vpolaris/librairies:devtools as libngtcp2-dependencies
 COPY --from=libev / /
 COPY --from=libevent / /
 COPY --from=libxml2 / /
-COPY --from=nghttp3 / /
+COPY --from=libnghttp3 / /
 COPY --from=openssl / /
 
 COPY --from=libiconv /usr/local/libiconv/include/* /usr/include/
