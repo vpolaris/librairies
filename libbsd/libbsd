@@ -1,0 +1,56 @@
+# sudo docker build -t libbsd -f ./libbsd .
+# built command with check enable (take a long time to process)
+# sudo docker build --build-arg CHECK=1 -t libbsd -f ./libbsd .
+# sudo podman build --build-arg CHECK=1 -t libbsd -f ./libbsd .
+# built command without check
+# sudo docker build --rm --no-cache --squash --build-arg CHECK=0 -t libbsd -f ./libbsd .
+# sudo podman build --rm --no-cache --squash-all --build-arg CHECK=0 -t libbsd -f ./libbsd .
+
+# INFO: This library provides useful functions commonly found on BSD systems,
+# and lacking on others like GNU systems, thus making it easier to port
+# projects with strong BSD origins, without needing to embed the same
+# code over and over again on each project.
+
+# Last push : 22/04/2022 15:30:00
+
+FROM vpolaris/librairies:libmd as libmd
+FROM vpolaris/librairies:devtools as libbsd-dependencies
+
+COPY --from=libmd / /
+
+FROM libbsd-dependencies as libbsd-clone
+
+ARG NAME=libbsd
+ARG VERSION="latest"
+RUN git clone https://gitlab.freedesktop.org/libbsd/libbsd "/tmp/${NAME}" \
+    && cd "/tmp/${NAME}" \
+    && if [ ${VERSION}=="latest" ];then \
+        VERSION=$(git describe --tags $(git rev-list --tags --max-count=1)) \
+    ;fi \
+    && touch "/etc/compiled_versions/${NAME}.${VERSION}" \
+    && git checkout "${VERSION}" \
+    && git submodule update --init --recursive
+
+FROM libbsd-clone as libbsd-compile
+
+ARG NAME=libbsd
+ARG CFLAGS="-I/usr/local/libmd/include/"
+ARG LIBS="-L/usr/local/libmd/lib"
+ENV PKG_CONFIG_PATH="/usr/lib64/pkgconfig"
+ARG CHECK=0
+RUN mkdir "/usr/local/${NAME}" \
+    && ldconfig \
+    && cd "/tmp/${NAME}" \ 
+    && ./autogen \
+    && ./configure --disable-static --with-pic --with-gnu-ld --prefix="/usr/local/${NAME}" \
+    && make -j "$(nproc)" \
+    && if [ ${CHECK} -eq 1 ];then make check -j "$(nproc)"; fi \
+    && make install \
+    && echo "/usr/local/${NAME}/lib" | tee "/etc/ld.so.conf.d/${NAME}.conf"
+    
+FROM scratch
+ARG NAME=libbsd
+COPY --from=libbsd-compile "/usr/local/${NAME}" "/usr/local/${NAME}"
+COPY --from=libbsd-compile "/etc/compiled_versions" "/etc/compiled_versions"
+COPY --from=libbsd-compile "/usr/local/${NAME}/lib/pkgconfig/*" "/usr/lib64/pkgconfig/"
+COPY --from=libbsd-compile "/etc/ld.so.conf.d/${NAME}.conf" "/etc/ld.so.conf.d/${NAME}.conf"
