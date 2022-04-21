@@ -1,10 +1,11 @@
 # built command with check enable (take a long time to process)
-# sudo docker build --no-cache --build-arg CHECK=1 -t openssl-quic -f ./openssl-quic .
+# sudo docker build --build-arg CHECK=1 -t openssl-quic -f ./openssl-quic .
+# sudo podman build --build-arg CHECK=1 -t openssl-quic -f ./openssl-quic .
 # built command without check
-# sudo docker build --rm --no-cache --squash --build-arg CHECK=0 -t openssl-quick -f ./openssl-quic .
+# sudo docker build --rm --no-cache --squash --build-arg CHECK=0 -t openssl-quic -f ./openssl-quic .
 
 #INFO: This fork adds APIs that can be used by QUIC implementations for connection handshakes. Quoting the IETF Working group charter, QUIC is a "UDP-based, stream-multiplexing, encrypted transport protocol." If you don't need QUIC, you should use the official OpenSSL distributions.
-#Last run: 14/04/2022
+#Last run: 21/04/2022 11:00:00
 
 
 FROM vpolaris/librairies:devtools as openssl-dependencies
@@ -38,6 +39,7 @@ RUN mkdir "/usr/local/${NAME}" \
     
 FROM scratch
 ARG NAME=ssl
+ARG VERSION="1_1_1n"
 COPY --from=openssl-compile "/usr/local/${NAME}" "/usr/local/${NAME}"
 COPY --from=openssl-compile "/etc/compiled_versions" "/etc/compiled_versions"
 COPY --from=openssl-compile "/usr/local/${NAME}/lib/pkgconfig/*" "/usr/lib64/pkgconfig/"
