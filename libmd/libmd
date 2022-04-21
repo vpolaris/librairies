@@ -1,0 +1,48 @@
+# sudo docker build -t libmd -f ./libmd .
+# built command with check enable (take a long time to process)
+# sudo docker build --build-arg CHECK=1 -t libmd -f ./libmd .
+# sudo podman build --build-arg CHECK=1 -t libmd -f ./libmd .
+# built command without check
+# sudo docker build --rm --no-cache --squash --build-arg CHECK=0 -t libmd -f ./libmd .
+# sudo podman build --rm --no-cache --squash-all --build-arg CHECK=0 -t libmd -f ./libmd .
+
+# INFO: This library provides message digest functions found on BSD systems either on their libc (NetBSD, OpenBSD) or libmd (FreeBSD, DragonflyBSD, macOS, Solaris) libraries and lacking on others like GNU systems.
+# Last update: 15/04/2022 15:15:00
+FROM vpolaris/librairies:devtools as libmd-dependencies
+
+ARG NONE=none
+
+FROM libmd-dependencies as libmd-clone
+
+ARG NAME=libmd
+ARG VERSION="latest"
+RUN git clone https://git.hadrons.org/git/libmd.git "/tmp/${NAME}" \
+    && cd "/tmp/${NAME}" \
+    && if [ ${VERSION}=="latest" ];then \
+        VERSION=$(git describe --tags $(git rev-list --tags --max-count=1)) \
+    ;fi \
+    && touch "/etc/compiled_versions/${NAME}.${VERSION}" \
+    && git checkout "${VERSION}" \
+    && git submodule update --init --recursive
+
+FROM libmd-clone as libmd-compile
+
+ARG NAME=libmd
+ENV PKG_CONFIG_PATH=/usr/local/ssl/lib/pkgconfig:/usr/lib64/pkgconfig
+ARG CHECK=0
+RUN mkdir "/usr/local/${NAME}" \
+    && ldconfig \
+    && cd "/tmp/${NAME}/" \
+    && ./autogen \
+    && ./configure --disable-static --with-pic --with-gnu-ld --prefix=/usr/local/libmd \
+    && make -j "$(nproc)" \
+    && if [ ${CHECK} -eq 1 ];then make check; fi \
+    && make install \
+    && echo "/usr/local/${NAME}/lib" | tee "/etc/ld.so.conf.d/${NAME}.conf"
+    
+FROM scratch
+ARG NAME=libmd
+COPY --from=libmd-compile "/usr/local/${NAME}" "/usr/local/${NAME}"
+COPY --from=libmd-compile "/etc/compiled_versions" "/etc/compiled_versions"
+COPY --from=libmd-compile "/usr/local/${NAME}/lib/pkgconfig/*" "/usr/lib64/pkgconfig/"
+COPY --from=libmd-compile "/etc/ld.so.conf.d/${NAME}.conf" "/etc/ld.so.conf.d/${NAME}.conf"
