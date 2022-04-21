@@ -1,10 +1,17 @@
 # built command with check enable (take a long time to process)
 # sudo docker build --no-cache --build-arg CHECK=1 -t libxml2 -f ./libxml2 .
+# sudo podman build --no-cache --build-arg CHECK=1 -t libxml2 -f ./libxml2 .
 # built command without check
 # sudo docker build --rm --no-cache --squash --build-arg CHECK=0 -t libxml2 -f ./libxml2 .
-FROM libiconv as libiconv
-FROM xzutil as xzutil
-FROM devtools as libxml2-dependencies
+# sudo podman build --rm --no-cache --squash--all --build-arg CHECK=0 -t libxml2 -f ./libxml2 .
+
+# INFO: libxml2 is an XML toolkit implemented in C, originally developed for the GNOME Project.
+# Support amd64 and arm64 architecture
+# Last update : 22/04/2022 18:400:0
+
+FROM vpolaris/librairies:libiconv as libiconv
+FROM vpolaris/librairies:xzutil as xzutil
+FROM vpolaris/librairies:devtools  as libxml2-dependencies
 
 COPY --from=libiconv /usr/local/libiconv/include/* /usr/include/
 COPY --from=libiconv /usr/local/libiconv/bin/ /usr/bin/
@@ -16,8 +23,9 @@ RUN yum -y install python3 python3-devel \
     && rm /usr/lib64/*.la
 
 FROM libxml2-dependencies as libxml2-clone
-ARG NAME=libxml2
-RUN git clone https://gitlab.gnome.org/GNOME/libxml2 "/tmp/${NAME}" \
+ARG NAME="libxml2"
+ARG SRC_DIRECTORY="/tmp/${NAME}"
+RUN git clone https://gitlab.gnome.org/GNOME/libxml2 "${SRC_DIRECTORY}" \
     && cd "/tmp/${NAME}" \
     && export LIB_VERSION=$(git describe --tags $(git rev-list --tags --max-count=1)) \
     && touch "/etc/compiled_versions/${NAME}.${VERSION}" \
@@ -25,12 +33,13 @@ RUN git clone https://gitlab.gnome.org/GNOME/libxml2 "/tmp/${NAME}" \
     && git submodule update --init --recursive
 
 FROM libxml2-clone as libxml2-compile
-ARG NAME=libxml2
-ENV PKG_CONFIG_PATH=/usr/local/ssl/lib/pkgconfig:/usr/lib64/pkgconfig
+ARG NAME="libxml2"
+ARG SRC_DIRECTORY="/tmp/${NAME}"
+ENV PKG_CONFIG_PATH=/usr/lib64/pkgconfig
 ARG CHECK=0
 RUN mkdir "/usr/local/${NAME}" \
     && ldconfig \
-    && cd "/tmp/${NAME}" \
+    && cd "${SRC_DIRECTORY}"  \
     && ./autogen.sh --disable-static --with-pic --with-gnu-ld \
         --with-lzma=/usr/local/xzutil \
         --with-python=/usr/bin/python3 \
@@ -41,7 +50,7 @@ RUN mkdir "/usr/local/${NAME}" \
     && echo "/usr/local/${NAME}/lib" | tee "/etc/ld.so.conf.d/${NAME}.conf"
     
 FROM scratch
-ARG NAME=libxml2
+ARG NAME="libxml2"
 COPY --from=libxml2-compile "/usr/local/${NAME}" "/usr/local/${NAME}"
 COPY --from=libxml2-compile "/etc/compiled_versions" "/etc/compiled_versions"
 COPY --from=libxml2-compile "/usr/local/${NAME}/lib/pkgconfig/*" "/usr/lib64/pkgconfig/"
