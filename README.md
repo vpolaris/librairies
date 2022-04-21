@@ -6,7 +6,7 @@
 
 
 **libevent** is a software library that provides asynchronous event notification
-![GitHub Workflow Status (event)](https://img.shields.io/github/workflow/status/vpolaris/librairies/Compile%libevent%20library?event=push&label=libevent&style=plastic)
+![GitHub Workflow Status (event)](https://img.shields.io/github/workflow/status/vpolaris/librairies/Compile%20libevent%20library?event=push&label=libevent&style=plastic)
 
 **libnghttp3** is an implementation of HTTP/3 mapping over QUIC and QPACK in C. :
 ![GitHub Workflow Status (branch)](https://img.shields.io/github/workflow/status/vpolaris/librairies/Compile%20libnghttp3%20librairies/main?label=libnghttp3%20%20&style=plastic)
