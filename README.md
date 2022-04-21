@@ -33,6 +33,9 @@
 **libmnl** is a minimalistic user-space library oriented to Netlink developers.
 ![GitHub Workflow Status (event)](https://img.shields.io/github/workflow/status/vpolaris/librairies/Compile%20libmnl%20library?event=push&label=libmnl&style=plastic)
 
+**libxml2** is an XML toolkit implemented in C, originally developed for the GNOME Project.
+![GitHub Workflow Status (event)](https://img.shields.io/github/workflow/status/vpolaris/librairies/Compile%20libxml2%20library?event=push&label=libxml2&style=plastic)
+
 **OpenSSL**  s a software library for applications that secure communications
 ![GitHub Workflow Status (event)](https://img.shields.io/github/workflow/status/vpolaris/librairies/Compile%20openssl%20librairies?event=push&label=openssl&style=plastic)
 
@@ -41,5 +44,4 @@
 
 **XZ Utils** is free general-purpose data compression software with a high compression ratio
 ![GitHub Workflow Status (event)](https://img.shields.io/github/workflow/status/vpolaris/librairies/Compile%20xzutil%20library?event=push&label=xzutil&style=plastic)
-
 
