@@ -1,0 +1,60 @@
+# built command with check enable (take a long time to process)
+# sudo docker build --build-arg CHECK=1 -t libsodium -f ./libsodium .
+# sudo podman build --build-arg CHECK=1 -t libsodium -f ./libsodium .
+# built command without check
+# sudo docker build --rm --no-cache --squash --build-arg CHECK=0 -t libsodium -f ./libsodium .
+# sudo podman build --rm --no-cache --squash-all --build-arg CHECK=0 -t libsodium -f ./libsodium .
+
+# Sodium is a new, easy-to-use software library for encryption, decryption, signatures, password hashing and more.
+# Support amd64 and arm64 architecture
+# Last update: 23/04/2022 00:40:00
+
+FROM vpolaris/librairies:libbsd as libbsd
+FROM vpolaris/librairies:openssl as openssl
+FROM vpolaris/librairies:protobuf as protobuf
+FROM vpolaris/librairies:devtools as libsodium-dependencies
+
+COPY --from=libbsd / /    
+COPY --from=openssl / /
+COPY --from=protobuf / /
+
+FROM libsodium-dependencies as libsodium-clone
+ARG NAME="libsodium"
+ARG SRC_DIRECTORY="/tmp/${NAME}"
+ARG VERSION="latest"
+
+RUN git clone https://github.com/jedisct1/libsodium "${SRC_DIRECTORY}" \
+    && cd "/tmp/${NAME}" \
+    && if [ "${VERSION}" == "latest" ];then \
+        VERSION=$(git describe --tags $(git rev-list --tags --max-count=1)) \
+    ;fi \
+    && touch "/etc/compiled_versions/${NAME}.${VERSION}" \
+    && git checkout "${VERSION}" \
+    && git submodule update --init --recursive
+
+FROM libsodium-clone as libsodium-compile
+ARG NAME="libsodium"
+ARG SRC_DIRECTORY="/tmp/${NAME}"
+ENV PKG_CONFIG_PATH=/usr/lib64/pkgconfig
+ARG CHECK=0
+# ARG CFLAGS="-I/usr/local/libev/include/"
+# ARG CXXFLAGS='-I/usr/local/libev/include'
+# ARG LIBS="-L/usr/local/libev/lib"
+# ARG LDFLAGS="-L/usr/local/libev/lib"
+
+RUN mkdir "/usr/local/${NAME}" \
+    && ldconfig \
+    &&  cd "${SRC_DIRECTORY}" \
+    && ./autogen.sh \
+    && ./configure --disable-static --with-pic --with-gnu-ld --prefix="/usr/local/${NAME}" \
+    && make -j "$(nproc)" \
+    && if [ ${CHECK} -eq 1 ];then make check; fi \
+    && make install \
+    && echo "/usr/local/${NAME}/lib" | tee "/etc/ld.so.conf.d/${NAME}.conf"
+    
+FROM scratch
+ARG NAME="libsodium"
+COPY --from=libsodium-compile "/usr/local/${NAME}" "/usr/local/${NAME}"
+COPY --from=libsodium-compile "/etc/compiled_versions" "/etc/compiled_versions"
+COPY --from=libsodium-compile "/usr/local/${NAME}/lib/pkgconfig/*" "/usr/lib64/pkgconfig/"
+COPY --from=libsodium-compile "/etc/ld.so.conf.d/${NAME}.conf" "/etc/ld.so.conf.d/${NAME}.conf"
