@@ -13,7 +13,6 @@
 **libev** A full-featured and high-performance (see benchmark) event loop
 ![GitHub Workflow Status (event)](https://img.shields.io/github/workflow/status/vpolaris/librairies/Compile%20libev%20library?event=push&label=libev&style=plastic)
 
-
 **libevent** is a software library that provides asynchronous event notification
 ![GitHub Workflow Status (event)](https://img.shields.io/github/workflow/status/vpolaris/librairies/Compile%20libevent%20library?event=push&label=libevent&style=plastic)
 
@@ -34,6 +33,9 @@
 
 **libngtcp2** project is an effort to implement RFC9000 QUIC protocol.
 ![GitHub Workflow Status (event)](https://img.shields.io/github/workflow/status/vpolaris/librairies/Compile%20libngtcp2%20library?event=push&label=libngtcp2&style=plastic)
+
+**libsodium** is a new, easy-to-use software library for encryption, decryption, signatures, password hashing and more.
+![GitHub Workflow Status (event)](https://img.shields.io/github/workflow/status/vpolaris/librairies/Compile%20libsodium%20library?event=push&label=libsodium&style=plastic)
 
 **libxml2** is an XML toolkit implemented in C, originally developed for the GNOME Project.
 ![GitHub Workflow Status (event)](https://img.shields.io/github/workflow/status/vpolaris/librairies/Compile%20libxml2%20library?event=push&label=libxml2&style=plastic)
