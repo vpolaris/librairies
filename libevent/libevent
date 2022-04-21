@@ -1,0 +1,52 @@
+# built command with check enable (take a long time to process)
+# sudo docker build --build-arg CHECK=1 -t libevent -f ./libevent .
+# sudo podman build --build-arg CHECK=1 -t libevent -f ./libevent .
+# built command without check
+# sudo docker build --rm --no-cache --squash --build-arg CHECK=0 -t libevent -f ./libevent .
+# sudo podman build --rm --no-cache --squash-all --build-arg CHECK=0 -t libevent -f ./libevent .
+
+# INFO: libevent is a software library that provides asynchronous event notification
+# Last updae : 22/04/2022 14:08:00
+
+FROM openssl as openssl
+FROM vpolaris/librairies:devtools as libevent-dependencies
+
+COPY --from=openssl / /
+RUN yum -y install python3
+
+FROM libevent-dependencies as libevent-clone
+
+ARG NAME=libevent
+ARG VERSION="latest"
+RUN git clone https://github.com/libevent/libevent "/tmp/${NAME}" \
+    && cd "/tmp/${NAME}" \
+    && if [ ${VERSION}=="latest" ];then \
+        VERSION=$(git describe --tags $(git rev-list --tags --max-count=1)) \
+    ;fi \
+    && touch "/etc/compiled_versions/${NAME}.${VERSION}" \
+    && git checkout "${VERSION}" \
+    && git submodule update --init --recursive
+
+FROM libevent-clone as libevent-compile
+
+ARG NAME=libevent
+ENV PKG_CONFIG_PATH=/usr/local/ssl/lib/pkgconfig:/usr/lib64/pkgconfig
+ARG CHECK=0
+RUN mkdir "/usr/local/${NAME}" \
+    && ldconfig \
+    && cd "/tmp/${NAME}" \ 
+    && ./autogen.sh \
+    && sed -i 's/python/&3/' event_rpcgen.py \
+    && ./configure --disable-static --with-pic --with-gnu-ld --prefix="/usr/local/${NAME}" \
+    && make -j "$(nproc)" \
+    && if [ ${CHECK} -eq 1 ];then make check; fi \
+    && make install \
+    && echo "/usr/local/${NAME}/lib" | tee "/etc/ld.so.conf.d/${NAME}.conf"
+    
+FROM scratch
+ARG NAME=libevent
+COPY --from=libevent-compile "/usr/local/${NAME}" "/usr/local/${NAME}"
+COPY --from=libevent-compile "/etc/compiled_versions" "/etc/compiled_versions"
+COPY --from=libevent-compile "/usr/local/${NAME}/lib/pkgconfig/*" "/usr/lib64/pkgconfig/"
+COPY --from=libevent-compile "/etc/ld.so.conf.d/${NAME}.conf" "/etc/ld.so.conf.d/${NAME}.conf"
+    
