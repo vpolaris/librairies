@@ -4,6 +4,8 @@
 **c-ares** is a C library for asynchronous DNS requests (including name resolves) :
 ![GitHub Workflow Status (branch)](https://img.shields.io/github/workflow/status/vpolaris/librairies/Compile%20c-ares%20librairies/main?label=c-ares&style=plastic)
 
+**Hiredis** is a minimalistic C client library for the Redis database.
+![GitHub Workflow Status (event)](https://img.shields.io/github/workflow/status/vpolaris/librairies/Compile%20hiredis%20library?event=push&label=hiredis&style=plastic)
 
 **libevent** is a software library that provides asynchronous event notification
 ![GitHub Workflow Status (event)](https://img.shields.io/github/workflow/status/vpolaris/librairies/Compile%20libevent%20library?event=push&label=libevent&style=plastic)
