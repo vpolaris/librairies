@@ -1,0 +1,82 @@
+# built command with check enable (take a long time to process)
+# sudo docker build --no-cache --build-arg CHECK=1 -t libngtcp2 -f ./libngtcp2 .
+# sudo podman build --no-cache --build-arg CHECK=1 -t libngtcp2 -f ./libngtcp2 .
+# built command without check
+# sudo docker build --rm --no-cache --squash --build-arg CHECK=0 -t libngtcp2 -f ./libngtcp2 .
+# sudo podman build --rm --no-cache --squash-all --build-arg CHECK=0 -t libngtcp2 -f ./libngtcp2 .
+
+# INFO: ngtcp2 project is an effort to implement RFC9000 QUIC protocol.
+# Support amd64 and arm64 architecture
+# Last update: 22/04/2022 20:10:00
+
+FROM vpolaris/librairies:libev as libev
+FROM vpolaris/librairies:libevent as libevent
+FROM vpolaris/librairies:libiconv as libiconv
+FROM vpolaris/librairies:libxml2 as libxml2
+FROM vpolaris/librairies:nghttp3 as nghttp3
+FROM vpolaris/librairies:openssl-quic as openssl
+FROM vpolaris/librairies:devtools as libngtcp2-dependencies
+    
+
+COPY --from=libev / /
+COPY --from=libevent / /
+COPY --from=libxml2 / /
+COPY --from=nghttp3 / /
+COPY --from=openssl / /
+
+COPY --from=libiconv /usr/local/libiconv/include/* /usr/include/
+COPY --from=libiconv /usr/local/libiconv/bin/ /usr/bin/
+COPY --from=libiconv /usr/local/libiconv/lib/ /usr/lib64/
+
+RUN yum -y install CUnit CUnit-devel \
+    && yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm \
+    && yum -y install jemalloc jemalloc-devel --enablerepo=epel \
+    && rm -f /usr/lib64/*.la
+
+
+FROM libngtcp2-dependencies as libngtcp2-clone
+ARG NAME="libngtcp2"
+ARG SRC_DIRECTORY="/tmp/${NAME}"
+ARG VERSION="latest"
+
+RUN git clone https://github.com/ngtcp2/ngtcp2 "${SRC_DIRECTORY}" \
+    && cd "/tmp/${NAME}" \
+    && if [ "${VERSION}" == "latest" ];then \
+        VERSION=$(git describe --tags $(git rev-list --tags --max-count=1)) \
+    ;fi \
+    && touch "/etc/compiled_versions/${NAME}.${VERSION}" \
+    && git checkout "${VERSION}" \
+    && git submodule update --init --recursive
+
+FROM libngtcp2-clone as libngtcp2-compile
+ARG NAME="libngtcp2"
+ARG SRC_DIRECTORY="/tmp/${NAME}"
+ENV PKG_CONFIG_PATH=/usr/lib64/pkgconfig
+ARG CHECK=0
+ARG CFLAGS="-I/usr/local/libev/include/"
+ARG CXXFLAGS='-I/usr/local/libev/include'
+ARG LIBS="-L/usr/local/libev/lib"
+ARG LDFLAGS="-L/usr/local/libev/lib"
+
+RUN mkdir "/usr/local/${NAME}" \
+    && ldconfig \
+    &&  cd "${SRC_DIRECTORY}" \
+    && autoreconf -fi \
+    && ./configure --disable-static --with-pic --with-gnu-ld \
+        --prefix="/usr/local/${NAME}" \
+        --with-libev --with-openssl --enable-lib-only\
+        # CFLAGS='-I/usr/local/libev/include' \
+        # LIBS='-L/usr/local/libev/lib' \
+        # CXXFLAGS='-I/usr/local/libev/include' \
+    && make -j "$(nproc)" \
+    && if [ ${CHECK} -eq 1 ];then make check -j "$(nproc)"; fi \
+    && make install \
+    && echo "/usr/local/${NAME}/lib" | tee "/etc/ld.so.conf.d/${NAME}.conf"
+    
+FROM scratch
+ARG NAME="libngtcp2"
+COPY --from=libngtcp2-compile "/usr/local/${NAME}" "/usr/local/${NAME}"
+COPY --from=libngtcp2-compile "/etc/compiled_versions" "/etc/compiled_versions"
+COPY --from=libngtcp2-compile "/usr/local/${NAME}/lib/pkgconfig/*" "/usr/lib64/pkgconfig/"
+COPY --from=libngtcp2-compile "/etc/ld.so.conf.d/${NAME}.conf" "/etc/ld.so.conf.d/${NAME}.conf"
+    
