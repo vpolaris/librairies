@@ -1,0 +1,63 @@
+# built command with check enable (take a long time to process)
+# sudo docker build --build-arg CHECK=1 -t protobuf -f ./protobuf .
+# sudo podman build --build-arg CHECK=1 -t protobuf -f ./protobuf .
+# built command without check
+# sudo docker build --rm --no-cache --squash --build-arg CHECK=0 -t protobuf -f ./protobuf .
+# sudo podman build --rm --no-cache --squash-all --build-arg CHECK=0 -t protobuf -f ./protobuf .
+
+# Protocol buffers are Google's language-neutral, platform-neutral, extensible mechanism for serializing structured data – think XML, but smaller, faster, and simpler.
+# Support amd64 and arm64 architecture
+# Last update: 22/04/2022 23:45:00
+
+FROM vpolaris/librairies:openssl as openssl
+FROM vpolaris/librairies:devtools as protobuf-dependencies
+    
+COPY --from=openssl / /
+
+FROM protobuf-dependencies as protobuf-clone
+ARG NAME="protobuf"
+ARG SRC_DIRECTORY="/tmp/${NAME}"
+ARG VERSION="v3.20.0"
+
+RUN git clone https://github.com/protocolbuffers/protobuf  "${SRC_DIRECTORY}" \
+    && cd "/tmp/${NAME}" \
+    && if [[ "${VERSION}" == "latest" ]];then \
+        VERSION=$(git describe --tags $(git rev-list --tags --max-count=1)) \
+    ;fi \
+    && touch "/etc/compiled_versions/${NAME}.${VERSION}" \
+    && git checkout "${VERSION}" \
+    && git submodule update --init --recursive
+
+FROM protobuf-clone as protobuf-compile
+ARG NAME="protobuf"
+ARG SRC_DIRECTORY="/tmp/${NAME}"
+ENV PKG_CONFIG_PATH=/usr/lib64/pkgconfig
+ARG CHECK=0
+# ARG CFLAGS='-I/usr/local/libev/include/'
+# ARG CXXFLAGS='-I/usr/local/libev/include'
+# ARG LIBS="-L/usr/local/libev/lib"
+# ARG LDFLAGS="-L/usr/local/libev/lib"
+
+RUN mkdir "/usr/local/${NAME}" \
+    && ldconfig \
+    &&  cd "${SRC_DIRECTORY}" \
+    && ./autogen.sh \
+    && ./configure --disable-static --with-pic --with-zlib --with-gnu-ld --prefix=/usr/local/protobuf \
+    && curl -sSL -o protobuf-3.14-disable-IoTest.LargeOutput.patch https://src.fedoraproject.org/rpms/protobuf/raw/rawhide/f/protobuf-3.14-disable-IoTest.LargeOutput.patch \
+    && patch -p1 -t  src/google/protobuf/io/zero_copy_stream_unittest.cc protobuf-3.14-disable-IoTest.LargeOutput.patch \
+    && curl -sSL -o disable-tests-on-32-bit-systems.patch  https://src.fedoraproject.org/rpms/protobuf/raw/rawhide/f/disable-tests-on-32-bit-systems.patch \
+    && patch -p0 -i disable-tests-on-32-bit-systems.patch \
+    && curl -sSL -o protobuf-3.19.4-jre17-add-opens.patch https://src.fedoraproject.org/rpms/protobuf/raw/rawhide/f/protobuf-3.19.4-jre17-add-opens.patch \
+    && patch -p0 -t java/pom.xml protobuf-3.19.4-jre17-add-opens.patch \
+    && make -j "$(nproc)" \
+    && if [ ${CHECK} -eq 1 ];then make check -j "$(nproc)"; fi \
+    && make install \
+    && echo "/usr/local/${NAME}/lib" | tee "/etc/ld.so.conf.d/${NAME}.conf"
+    
+FROM scratch
+ARG NAME="protobuf"
+COPY --from=protobuf-compile "/usr/local/${NAME}" "/usr/local/${NAME}"
+COPY --from=protobuf-compile "/etc/compiled_versions" "/etc/compiled_versions"
+COPY --from=protobuf-compile "/usr/local/${NAME}/lib/pkgconfig/*" "/usr/lib64/pkgconfig/"
+COPY --from=protobuf-compile "/etc/ld.so.conf.d/${NAME}.conf" "/etc/ld.so.conf.d/${NAME}.conf"
+    
