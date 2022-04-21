@@ -5,7 +5,7 @@
 # INFO: XZ Utils is free general-purpose data compression software with a high compression ratio
 # Last push : 22/04/2022 18:20:00
 
-FROM devtools as xzutil-dependencies
+FROM vpolaris/librairies:devtools as xzutil-dependencies
 
 RUN yum -y install po4a 
 
