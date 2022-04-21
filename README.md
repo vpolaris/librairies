@@ -7,6 +7,9 @@
 **Hiredis** is a minimalistic C client library for the Redis database.
 ![GitHub Workflow Status (event)](https://img.shields.io/github/workflow/status/vpolaris/librairies/Compile%20hiredis%20library?event=push&label=hiredis&style=plastic)
 
+**libbsd** library provides useful functions commonly found on BSD systems
+![GitHub Workflow Status (event)](https://img.shields.io/github/workflow/status/vpolaris/librairies/Compile%20libbsd%20library?event=push&label=libbsd&style=plastic)
+
 **libevent** is a software library that provides asynchronous event notification
 ![GitHub Workflow Status (event)](https://img.shields.io/github/workflow/status/vpolaris/librairies/Compile%20libevent%20library?event=push&label=libevent&style=plastic)
 
