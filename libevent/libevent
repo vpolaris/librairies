@@ -6,9 +6,9 @@
 # sudo podman build --rm --no-cache --squash-all --build-arg CHECK=0 -t libevent -f ./libevent .
 
 # INFO: libevent is a software library that provides asynchronous event notification
-# Last updae : 22/04/2022 14:08:00
+# Last updae : 22/04/2022 14:15:00
 
-FROM openssl as openssl
+FROM vpolaris/librairies:openssl as openssl
 FROM vpolaris/librairies:devtools as libevent-dependencies
 
 COPY --from=openssl / /
