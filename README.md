@@ -16,6 +16,10 @@
 **libnghttp3** is an implementation of HTTP/3 mapping over QUIC and QPACK in C. :
 ![GitHub Workflow Status (branch)](https://img.shields.io/github/workflow/status/vpolaris/librairies/Compile%20libnghttp3%20librairies/main?label=libnghttp3%20%20&style=plastic)
 
+**libmd** library provides message digest functions found on BSD systems 
+![GitHub Workflow Status (event)](https://img.shields.io/github/workflow/status/vpolaris/librairies/Compile%20libmd%20library?event=push&label=libmd&style=plastic)
+
+
 **OpenSSL**  s a software library for applications that secure communications
 ![GitHub Workflow Status (event)](https://img.shields.io/github/workflow/status/vpolaris/librairies/Compile%20openssl%20librairies?event=push&label=openssl&style=plastic)
 
