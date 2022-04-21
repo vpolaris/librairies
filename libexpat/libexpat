@@ -1,0 +1,49 @@
+# sudo docker build -t libexpat -f ./libexpat .
+# built command with check enable (take a long time to process)
+# sudo docker build --build-arg CHECK=1 -t libexpat -f ./libexpat .
+# sudo podman build --build-arg CHECK=1 -t libexpat -f ./libexpat .
+# built command without check
+# sudo docker build --rm --no-cache --squash --build-arg CHECK=0 -t libexpat -f ./libexpat .
+# sudo podman build --rm --no-cache --squash-all --build-arg CHECK=0 -t libexpat -f ./libexpat .
+
+# INFO: This is Expat, a C library for parsing XML, started by James Clark in 1997. Expat is a stream-oriented XML parser. 
+# Last update : 15/04/2022 14:55:00
+FROM vpolaris/librairies:devtools as libexpat-dependencies
+
+ARG NONE=none
+
+FROM libexpat-dependencies as libexpat-clone
+
+ARG NAME=libexpat
+ARG VERSION="latest"
+RUN git clone https://github.com/libexpat/libexpat "/tmp/${NAME}" \
+    && cd "/tmp/${NAME}" \
+    && if [ ${VERSION}=="latest" ];then \
+        VERSION=$(git describe --tags $(git rev-list --tags --max-count=1)) \
+    ;fi \
+    && touch "/etc/compiled_versions/${NAME}.${VERSION}" \
+    && git checkout "${VERSION}" \
+    && git submodule update --init --recursive
+
+FROM libexpat-clone as libexpat-compile
+
+ARG NAME=libexpat
+ENV PKG_CONFIG_PATH=/usr/local/ssl/lib/pkgconfig:/usr/lib64/pkgconfig
+ARG CHECK=0
+RUN mkdir "/usr/local/${NAME}" \
+    && ldconfig \
+    && cd "/tmp/${NAME}/expat" \ 
+    && ./buildconf.sh \
+    && ./configure --disable-static --with-pic --prefix="/usr/local/${NAME}" \
+    && make -j "$(nproc)" \
+    && make check \
+    && make install \
+    && echo "/usr/local/${NAME}/lib" | tee "/etc/ld.so.conf.d/${NAME}.conf"
+    
+FROM scratch
+ARG NAME=libexpat
+COPY --from=libexpat-compile "/usr/local/${NAME}" "/usr/local/${NAME}"
+COPY --from=libexpat-compile "/etc/compiled_versions" "/etc/compiled_versions"
+COPY --from=libexpat-compile "/usr/local/${NAME}/lib/pkgconfig/*" "/usr/lib64/pkgconfig/"
+COPY --from=libexpat-compile "/etc/ld.so.conf.d/${NAME}.conf" "/etc/ld.so.conf.d/${NAME}.conf"
+    
