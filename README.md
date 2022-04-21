@@ -20,6 +20,10 @@
 **libexpat** This is Expat, a C library for parsing XML
 ![GitHub Workflow Status (event)](https://img.shields.io/github/workflow/status/vpolaris/librairies/Compile%20libexpat%20library?event=push&label=libexpat&style=plastic)
 
+**libiconv** library provides an iconv() implementation, for use on systems which don't have one
+![GitHub Workflow Status (event)](https://img.shields.io/github/workflow/status/vpolaris/librairies/Compile%20libiconv%20library?event=push&label=libiconv&style=plastic)
+
+
 **libnghttp3** is an implementation of HTTP/3 mapping over QUIC and QPACK in C. :
 ![GitHub Workflow Status (branch)](https://img.shields.io/github/workflow/status/vpolaris/librairies/Compile%20libnghttp3%20librairies/main?label=libnghttp3%20%20&style=plastic)
 
