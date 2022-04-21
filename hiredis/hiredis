@@ -1,0 +1,60 @@
+# built command with check enable (take a long time to process)
+# sudo docker build --build-arg CHECK=1 -t hiredis -f ./hiredis .
+# sudo podman build --build-arg CHECK=1 -t hiredis -f ./hiredis .
+# built command without check
+# sudo docker build --rm --no-cache --squash --build-arg CHECK=0 -t hiredis -f ./hiredis .
+
+# INFO: Hiredis is a minimalistic C client library for the Redis database.
+# Last update : 20/04/2022 14:30;00
+
+FROM vpolaris/librairies:libevent as libevent
+FROM vpolaris/librairies:openssl as openssl
+FROM vpolaris/librairies:devtools as hiredis-dependencies
+
+COPY --from=openssl / /
+COPY --from=libevent / /
+
+RUN yum -y install cmake3 valgrind 
+RUN yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm \
+    && yum -y install jemalloc jemalloc-devel --enablerepo=epel
+    
+FROM hiredis-dependencies as hiredis-clone
+ARG NAME=hiredis
+ARG VERSION="latest"
+RUN git clone https://github.com/redis/hiredis "/tmp/${NAME}" \
+    && cd "/tmp/${NAME}" \
+    && if [ ${VERSION}=="latest" ];then \
+        VERSION=$(git describe --tags $(git rev-list --tags --max-count=1)) \
+    ;fi \
+    && touch "/etc/compiled_versions/${NAME}.${VERSION}" \
+    && git checkout "${VERSION}" \
+    && git submodule update --init --recursive
+
+FROM hiredis-clone as hiredis-compile
+ARG CHECK=0
+ARG EXTRA_CMAKE_OPTS='-DENABLE_EXAMPLES:BOOL=ON -DENABLE_SSL:BOOL=ON -DENABLE_SSL_TESTS:BOOL=ON -DENABLE_ASYNC_TESTS:BOOL=ON'
+ARG CFLAGS='-Werror'
+ARG CXXFLAGS='-Werror'
+ARG SKIPS_AS_FAILS=1
+ARG TEST_SSL=1
+ARG NAME=hiredis
+ENV PKG_CONFIG_PATH=/usr/local/ssl/lib/pkgconfig:/usr/lib64/pkgconfig
+ARG CHECK=0
+RUN mkdir "/usr/local/${NAME}" \
+    && ldconfig \
+    && cd "/tmp/${NAME}" \ 
+    && mkdir build-amzn2 && cd build-amzn2 &&  cmake3 -DCMAKE_INSTALL_PREFIX:PATH="/usr/local/${NAME}" .. \
+    && USE_SSL=1 TEST_ASYNC=1 make -j "$(nproc)"  \
+    && if [ ${CHECK} -eq 1 ];then ../test.sh \
+            && export TEST_PREFIX='valgrind --error-exitcode=99 --track-origins=yes --leak-check=full' \
+            && ../test.sh \
+       ;fi \
+    && make install \
+    && echo "/usr/local/${NAME}/lib" | tee "/etc/ld.so.conf.d/${NAME}.conf"
+    
+FROM scratch
+ARG NAME=hiredis
+COPY --from=hiredis-compile "/usr/local/${NAME}" "/usr/local/${NAME}"
+COPY --from=hiredis-compile "/etc/compiled_versions" "/etc/compiled_versions"
+COPY --from=hiredis-compile "/usr/local/${NAME}/lib/pkgconfig/*" "/usr/lib64/pkgconfig/"
+COPY --from=hiredis-compile "/etc/ld.so.conf.d/${NAME}.conf" "/etc/ld.so.conf.d/${NAME}.conf"
