@@ -38,3 +38,8 @@
 
 **OpenSSL Quic** This fork can be used by QUIC implementations for connection handshake
 ![GitHub Workflow Status (event)](https://img.shields.io/github/workflow/status/vpolaris/librairies/Compile%20openssl-quic%20librairies?event=push&label=openssl-quic&style=plastic)
+
+**XZ Utils** is free general-purpose data compression software with a high compression ratio
+![GitHub Workflow Status (event)](https://img.shields.io/github/workflow/status/vpolaris/librairies/Compile%20xzutil%20library?event=push&label=xzutil&style=plastic)
+
+
