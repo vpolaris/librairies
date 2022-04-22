@@ -25,7 +25,7 @@ ARG VERSION="latest"
 
 RUN git clone https://github.com/libbpf/libbpf "${SRC_DIRECTORY}" \
     && cd "/tmp/${NAME}" \
-    && if [ ${VERSION}=="latest" ];then \
+    && if [ "${VERSION}" == "latest" ];then \
         VERSION=$(git describe --tags $(git rev-list --tags --max-count=1)) \
     ;fi \
     && touch "/etc/compiled_versions/${NAME}.${VERSION}" \
@@ -46,7 +46,7 @@ RUN mkdir "/usr/local/${NAME}" \
     && ldconfig \
     && cd "${SRC_DIRECTORY}"/src \
     && mkdir build \
-    && PKG_CONFIG_PATH=/usr/lib64/pkgconfig BUILD_SHARED_ONLY=y OBJDIR=build DESTDIR="/usr/local/${NAME}" make install -j "$(nproc)" \
+    && PKG_CONFIG_PATH=/usr/lib64/pkgconfig BUILD_SHARED_ONLY=y OBJDIR=build DESTDIR="/usr/local/${NAME}" make install -j "$(nproc)"
     # && if [ ${CHECK} -eq 1 ];then make check; fi \
     # && make install 
     # && echo "/usr/local/${NAME}/lib" | tee "/etc/ld.so.conf.d/${NAME}.conf"
