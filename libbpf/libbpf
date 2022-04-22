@@ -9,7 +9,7 @@
 # Support amd64 and arm64 architecture
 # Last update : 23/04/2022 10:30:00
 
-FROM libelf as libelf
+FROM vpolaris/librairies:libelf as libelf
 # FROM openssl as openssl
 # FROM protobuf as protobuf
 FROM vpolaris/librairies:devtools as libbpf-dependencies
