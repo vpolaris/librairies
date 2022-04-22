@@ -53,7 +53,7 @@ RUN mkdir "/usr/local/${NAME}" \
     
 FROM scratch
 ARG NAME="libbpf"
-RUN VERSION=$(ls /etc/compiled_versions) && echo ${VERSION}
+RUN export VERSION="$(ls '/etc/compiled_versions')" && echo "${VERSION}"
 COPY --from=libbpf-compile "/usr/local/${NAME}/usr/include/" "/usr/include/"
 COPY --from=libbpf-compile "/usr/local/${NAME}/usr/lib64/" "/usr/lib64/"
 COPY --from=libbpf-compile "/etc/compiled_versions" "/etc/compiled_versions"
