@@ -1,0 +1,84 @@
+# built command with check enable (take a long time to process)
+# sudo docker build --build-arg CHECK=1 -t libnghttp2 -f ./libnghttp2 .
+# sudo podman build --build-arg CHECK=1 -t libnghttp2 -f ./libnghttp2 .
+# built command without check
+# sudo docker build --rm --no-cache --squash --build-arg CHECK=0 -t libnghttp2 -f ./libnghttp2 .
+# sudo podman build --rm --no-cache --squash-all --build-arg CHECK=0 -t libnghttp2 -f ./libnghttp2 .
+
+# nghttp2 is an implementation of HTTP/2 and its header compression algorithm HPACK in C.
+# Support amd64 and arm64 architecture
+# Last update: 23/04/2022 08:15:00
+
+FROM vpolaris/librairies:c-ares as c-ares
+FROM vpolaris/librairies:libev as libev
+FROM vpolaris/librairies:libbpf as libbpf
+FROM vpolaris/librairies:libevent as libevent
+FROM vpolaris/librairies:libiconv as libiconv
+FROM vpolaris/librairies:libxml2 as libxml2
+FROM vpolaris/librairies:nghttp3 as nghttp3
+FROM vpolaris/librairies:libngtcp2 as libngtcp2
+FROM vpolaris/librairies:openssl-quic as openssl
+FROM vpolaris/librairies:devtools as libnghttp2-dependencies
+
+COPY --from=c-ares / /
+COPY --from=libbpf / /
+COPY --from=libev / /
+COPY --from=libevent / /
+COPY --from=libxml2 / /
+COPY --from=nghttp3 / /
+COPY --from=libngtcp2 / /
+COPY --from=openssl / /
+
+COPY --from=libiconv /usr/local/libiconv/include/* /usr/include/
+COPY --from=libiconv /usr/local/libiconv/bin/ /usr/bin/
+COPY --from=libiconv /usr/local/libiconv/lib/ /usr/lib64/
+
+RUN yum -y install jansson CUnit jansson-devel CUnit-devel \
+    && yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm \
+    && yum -y install jemalloc jemalloc-devel --enablerepo=epel \
+    && rm /usr/lib64/*.la
+
+FROM libnghttp2-dependencies as libnghttp2-clone
+ARG NAME="libnghttp2"
+ARG SRC_DIRECTORY="/tmp/${NAME}"
+ARG VERSION="latest"
+
+RUN git clone https://github.com/nghttp2/nghttp2 "${SRC_DIRECTORY}" \
+    && cd "/tmp/${NAME}" \
+    && if [ ${VERSION}=="latest" ];then \
+        VERSION=$(git describe --tags $(git rev-list --tags --max-count=1)) \
+    ;fi \
+    && touch "/etc/compiled_versions/${NAME}.${VERSION}" \
+    && git checkout "${VERSION}" \
+    && git submodule update --init --recursive
+
+FROM libnghttp2-clone as libnghttp2-compile
+ARG NAME="libnghttp2"
+ARG SRC_DIRECTORY="/tmp/${NAME}"
+ENV PKG_CONFIG_PATH=/usr/lib64/pkgconfig
+ARG CFLAGS='-I/usr/local/libev/include -I/usr/local/libbpf/include/'
+ARG CXXFLAGS='-I/usr/local/libev/include -I/usr/local/libbpf/include'
+ARG LIBS='-L/usr/local/libev/lib -L/usr/local/libbpf/lib'
+ARG LDFLAGS='-L/usr/local/libev/lib -L/usr/local/libbpf/lib'
+ARG BPFCFLAGS='-I/usr/local/libbpf/include/'
+ARG CHECK=0
+RUN mkdir "/usr/local/${NAME}" \
+    && ldconfig \
+    && cd "${SRC_DIRECTORY}" \
+    && aclocal && libtoolize --force && autoreconf -i \
+    && automake \
+    && autoconf \
+    && ./configure --enable-lib-only --disable-static --with-pic --with-gnu-ld --with-libbpf=/usr/local/libbpf \
+       --prefix="/usr/local/${NAME}" \
+       PYTHON_VERSION=3.7 \
+    && make -j "$(nproc)"  \
+    && if [ ${CHECK} -eq 1 ];then make check -j "$(nproc)";fi \
+    && make install \
+    && echo "/usr/local/${NAME}/lib" | tee "/etc/ld.so.conf.d/${NAME}.conf"
+    
+FROM scratch
+ARG NAME="libnghttp2"
+COPY --from=libnghttp2-compile "/usr/local/${NAME}" "/usr/local/${NAME}"
+COPY --from=libnghttp2-compile "/etc/compiled_versions" "/etc/compiled_versions"
+COPY --from=libnghttp2-compile "/usr/local/${NAME}/lib/pkgconfig/*" "/usr/lib64/pkgconfig/"
+COPY --from=libnghttp2-compile "/etc/ld.so.conf.d/${NAME}.conf" "/etc/ld.so.conf.d/${NAME}.conf"
