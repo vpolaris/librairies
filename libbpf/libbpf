@@ -1,0 +1,61 @@
+# built command with check enable (take a long time to process)
+# sudo docker build --build-arg CHECK=1 -t libbpf -f ./libbpf .
+# sudo podman build --build-arg CHECK=1 -t libbpf -f ./libbpf .
+# built command without check
+# sudo docker build --rm --no-cache --squash --build-arg CHECK=0 -t libbpf -f ./libbpf .
+# sudo podman build --rm --no-cache --squash-all --build-arg CHECK=0 -t libbpf -f ./libbpf .
+
+# Sodium is a new, easy-to-use software library for encryption, decryption, signatures, password hashing and more.
+# Support amd64 and arm64 architecture
+# Last update : 23/04/2022 10:30:00
+
+FROM libelf as libelf
+# FROM openssl as openssl
+# FROM protobuf as protobuf
+FROM vpolaris/librairies:devtools as libbpf-dependencies
+
+COPY --from=libelf / /    
+# COPY --from=openssl / /
+# COPY --from=protobuf / /
+
+FROM libbpf-dependencies as libbpf-clone
+ARG NAME="libbpf"
+ARG SRC_DIRECTORY="/tmp/${NAME}"
+ARG VERSION="latest"
+
+RUN git clone https://github.com/libbpf/libbpf "${SRC_DIRECTORY}" \
+    && cd "/tmp/${NAME}" \
+    && if [ ${VERSION}=="latest" ];then \
+        VERSION=$(git describe --tags $(git rev-list --tags --max-count=1)) \
+    ;fi \
+    && touch "/etc/compiled_versions/${NAME}.${VERSION}" \
+    && git checkout "${VERSION}" \
+    && git submodule update --init --recursive
+
+FROM libbpf-clone as libbpf-compile
+ARG NAME="libbpf"
+ARG SRC_DIRECTORY="/tmp/${NAME}"
+ENV PKG_CONFIG_PATH=/usr/lib64/pkgconfig
+ARG CHECK=0
+# ARG CFLAGS="-I/usr/local/libev/include/"
+# ARG CXXFLAGS='-I/usr/local/libev/include'
+# ARG LIBS="-L/usr/local/libev/lib"
+# ARG LDFLAGS="-L/usr/local/libev/lib"
+
+RUN mkdir "/usr/local/${NAME}" \
+    && ldconfig \
+    && cd "${SRC_DIRECTORY}"/src \
+    && mkdir build \
+    && PKG_CONFIG_PATH=/usr/lib64/pkgconfig BUILD_SHARED_ONLY=y OBJDIR=build DESTDIR="/usr/local/${NAME}" make install -j "$(nproc)" \
+    # && if [ ${CHECK} -eq 1 ];then make check; fi \
+    # && make install 
+    # && echo "/usr/local/${NAME}/lib" | tee "/etc/ld.so.conf.d/${NAME}.conf"
+    
+FROM scratch
+ARG NAME="libbpf"
+RUN VERSION=$(ls /etc/compiled_versions) && echo ${VERSION}
+COPY --from=libbpf-compile "/usr/local/${NAME}/usr/include/" "/usr/include/"
+COPY --from=libbpf-compile "/usr/local/${NAME}/usr/lib64/" "/usr/lib64/"
+COPY --from=libbpf-compile "/etc/compiled_versions" "/etc/compiled_versions"
+COPY --from=libbpf-compile "/usr/local/${NAME}/usr/lib64/pkgconfig/*" "/usr/lib64/pkgconfig/"
+# COPY --from=libbpf-compile "/etc/ld.so.conf.d/${NAME}.conf" "/etc/ld.so.conf.d/${NAME}.conf"
