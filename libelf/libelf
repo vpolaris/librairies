@@ -1,0 +1,64 @@
+# built command with check enable (take a long time to process)
+# sudo docker build --build-arg CHECK=1 -t libelf -f ./libelf .
+# sudo podman build cap-add NET_ADMIN,SYS_PTRACE --build-arg CHECK=1 -t libelf -f ./libelf .
+# built command without check
+# sudo docker build --rm --no-cache --squash --build-arg CHECK=0 -t libelf -f ./libelf .
+# sudo podman build --rm --no-cache --squash-all --build-arg CHECK=0 -t libelf -f ./libelf .
+
+# Sodium is a new, easy-to-use software library for encryption, decryption, signatures, password hashing and more.
+# Support amd64 and arm64 architecture
+# Last update: 23/04/2022 08:40:00
+
+# FROM vpolaris/librairies:libbsd as libbsd
+# FROM vpolaris/librairies:openssl as openssl
+# FROM vpolaris/librairies:protobuf as protobuf
+FROM vpolaris/librairies:devtools as libelf-dependencies
+
+# COPY --from=libbsd / /    
+# COPY --from=openssl / /
+# COPY --from=protobuf / /
+
+RUN yum -y install zstd bsdtar iproute procps-ng libcurl-devel libmicrohttpd-devel \
+    libarchive-devel sqlite-devel bzip2-devel xz-devel
+
+FROM libelf-dependencies as libelf-clone
+ARG NAME="libelf"
+ARG SRC_DIRECTORY="/tmp/${NAME}"
+ARG VERSION="latest"
+
+RUN git clone git://sourceware.org/git/elfutils.git "${SRC_DIRECTORY}" \
+    && cd "/tmp/${NAME}" \
+    && if [ "${VERSION}" == "latest" ];then \
+        VERSION=$(git describe --tags $(git rev-list --tags --max-count=1)) \
+    ;fi \
+    && touch "/etc/compiled_versions/${NAME}.${VERSION}" \
+    && git checkout "${VERSION}" \
+    && git submodule update --init --recursive
+
+FROM libelf-clone as libelf-compile
+ARG NAME="libelf"
+ARG SRC_DIRECTORY="/tmp/${NAME}"
+ENV PKG_CONFIG_PATH=/usr/lib64/pkgconfig
+ARG CHECK=0
+# ARG CFLAGS="-I/usr/local/libev/include/"
+# ARG CXXFLAGS='-I/usr/local/libev/include'
+# ARG LIBS="-L/usr/local/libev/lib"
+# ARG LDFLAGS="-L/usr/local/libev/lib"
+
+RUN mkdir "/usr/local/${NAME}" \
+    && ldconfig \
+    &&  cd "${SRC_DIRECTORY}" \
+    && autoreconf -fi\
+    && ./configure --disable-static --with-pic --with-gnu-ld \
+        --enable-maintainer-mode --prefix="/usr/local/${NAME}" \
+    && make -j "$(nproc)" \
+    && if [ ${CHECK} -eq 1 ];then make check; fi \
+    && make install \
+    && echo "/usr/local/${NAME}/lib" | tee "/etc/ld.so.conf.d/${NAME}.conf"
+    
+FROM scratch
+ARG NAME="libelf"
+COPY --from=libelf-compile "/usr/local/${NAME}" "/usr/local/${NAME}"
+COPY --from=libelf-compile "/etc/compiled_versions" "/etc/compiled_versions"
+COPY --from=libelf-compile "/usr/local/${NAME}/lib/pkgconfig/*" "/usr/lib64/pkgconfig/"
+COPY --from=libelf-compile "/etc/ld.so.conf.d/${NAME}.conf" "/etc/ld.so.conf.d/${NAME}.conf"
