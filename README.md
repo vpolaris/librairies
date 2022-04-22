@@ -49,6 +49,9 @@
 **protobuf** are Google's language-neutral, platform-neutral, extensible mechanism for serializing structured data
 ![GitHub Workflow Status (event)](https://img.shields.io/github/workflow/status/vpolaris/librairies/Compile%20protobuf%20library?event=push&label=protobuf&style=plastic)
 
+**protobuf-c**, a C implementation of the Google Protocol Buffers data serialization format.
+![GitHub Workflow Status (event)](https://img.shields.io/github/workflow/status/vpolaris/librairies/Compile%20protobufc%20library?event=push&label=protobufc&style=plastic)
+
 
 **XZ Utils** is free general-purpose data compression software with a high compression ratio
 ![GitHub Workflow Status (event)](https://img.shields.io/github/workflow/status/vpolaris/librairies/Compile%20xzutil%20library?event=push&label=xzutil&style=plastic)
