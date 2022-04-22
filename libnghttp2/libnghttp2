@@ -7,11 +7,11 @@
 
 # nghttp2 is an implementation of HTTP/2 and its header compression algorithm HPACK in C.
 # Support amd64 and arm64 architecture
-# Last update: 23/04/2022 08:15:00
+# Last update: 23/04/2022 21:00:00
 
 FROM vpolaris/librairies:c-ares as c-ares
 FROM vpolaris/librairies:libev as libev
-FROM vpolaris/librairies:libbpf as libbpf
+# FROM libbpf as libbpf
 FROM vpolaris/librairies:libevent as libevent
 FROM vpolaris/librairies:libiconv as libiconv
 FROM vpolaris/librairies:libxml2 as libxml2
@@ -21,7 +21,7 @@ FROM vpolaris/librairies:openssl-quic as openssl
 FROM vpolaris/librairies:devtools as libnghttp2-dependencies
 
 COPY --from=c-ares / /
-COPY --from=libbpf / /
+# COPY --from=libbpf / /
 COPY --from=libev / /
 COPY --from=libevent / /
 COPY --from=libxml2 / /
@@ -56,11 +56,11 @@ FROM libnghttp2-clone as libnghttp2-compile
 ARG NAME="libnghttp2"
 ARG SRC_DIRECTORY="/tmp/${NAME}"
 ENV PKG_CONFIG_PATH=/usr/lib64/pkgconfig
-ARG CFLAGS='-I/usr/local/libev/include -I/usr/local/libbpf/include/'
-ARG CXXFLAGS='-I/usr/local/libev/include -I/usr/local/libbpf/include'
-ARG LIBS='-L/usr/local/libev/lib -L/usr/local/libbpf/lib'
-ARG LDFLAGS='-L/usr/local/libev/lib -L/usr/local/libbpf/lib'
-ARG BPFCFLAGS='-I/usr/local/libbpf/include/'
+ARG CFLAGS='-I/usr/local/libev/include'
+ARG CXXFLAGS='-I/usr/local/libev/include'
+ARG LIBS='-L/usr/local/libev/lib'
+ARG LDFLAGS='-L/usr/local/libev/lib'
+# ARG BPFCFLAGS='-I/usr/local/libbpf/usr/include'
 ARG CHECK=0
 RUN mkdir "/usr/local/${NAME}" \
     && ldconfig \
@@ -68,7 +68,7 @@ RUN mkdir "/usr/local/${NAME}" \
     && aclocal && libtoolize --force && autoreconf -i \
     && automake \
     && autoconf \
-    && ./configure --enable-lib-only --disable-static --with-pic --with-gnu-ld --with-libbpf=/usr/local/libbpf \
+    && ./configure --enable-lib-only --disable-static --with-pic --with-gnu-ld \
        --prefix="/usr/local/${NAME}" \
        PYTHON_VERSION=3.7 \
     && make -j "$(nproc)"  \
