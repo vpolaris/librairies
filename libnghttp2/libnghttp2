@@ -15,7 +15,7 @@ FROM vpolaris/librairies:libbpf as libbpf
 FROM vpolaris/librairies:libevent as libevent
 FROM vpolaris/librairies:libiconv as libiconv
 FROM vpolaris/librairies:libxml2 as libxml2
-FROM vpolaris/librairies:nghttp3 as nghttp3
+FROM vpolaris/librairies:libnghttp3 as nghttp3
 FROM vpolaris/librairies:libngtcp2 as libngtcp2
 FROM vpolaris/librairies:openssl-quic as openssl
 FROM vpolaris/librairies:devtools as libnghttp2-dependencies
