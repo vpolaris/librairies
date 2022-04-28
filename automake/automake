@@ -3,6 +3,11 @@
 # sudo podman build --build-arg CHECK=1 -t automake -f ./automake .
 # built command without check
 # sudo docker build --rm --no-cache --squash --build-arg CHECK=0 -t automake -f ./automake .
+# sudo podman build --rm --no-cache --squash-all --build-arg CHECK=0 -t automake -f ./automake .
+
+# INFO: GNU Automake is a tool for automatically generating Makefile.in files compliant with the GNU Coding Standards. 
+# Support amd64 and arm64 architecture
+# Last update : 28/04/2022 18:30:00
 
 FROM vpolaris/librairies:devtools as  automake-dependencies
 
@@ -27,19 +32,18 @@ FROM automake-clone as automake-compile
 ARG NAME="automake"
 ARG SRC_DIRECTORY="/tmp/${NAME}"
 ARG TGT_DIRECTORY="/usr/local/${NAME}"
-ENV PKG_CONFIG_PATH=/usr/lib64/pkgconfig
+ENV PKG_CONFIG_PATH '/usr/lib64/pkgconfig'
 ARG CHECK=0
 # ARG CFLAGS="-I/usr/local/libev/include/"
 # ARG CXXFLAGS='-I/usr/local/libev/include'
 # ARG LIBS="-L/usr/local/libev/lib"
 # ARG LDFLAGS="-L/usr/local/libev/lib"
 
-RUN mkdir -p "${TGT_DIRECTORY}" \\
+RUN mkdir -p "${TGT_DIRECTORY}" \
     && ldconfig \
     && cd "${SRC_DIRECTORY}" \
     && ./bootstrap \
-    && ./configure --with-pic --with-gnu-ld \
-       --prefix="${TGT_DIRECTORY}" \
+    && ./configure --prefix="${TGT_DIRECTORY}" \
     && if [ ${CHECK} -eq 1 ];then make check; fi \
     && make install \
     && echo "/usr/local/${NAME}/lib" | tee "/etc/ld.so.conf.d/${NAME}.conf"
