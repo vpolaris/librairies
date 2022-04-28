@@ -1,0 +1,85 @@
+# built command with check enable (take a long time to process)
+# sudo docker build --build-arg CHECK=1 -t ldns -f ./ldns .
+# sudo podman build --build-arg CHECK=1 -t ldns -f ./ldns .
+# built command without check
+# sudo docker build -rm --no-cache --squash --build-arg CHECK=0 -t ldns -f ./ldns .
+# sudo podman build --no-cache --squash-all --build-arg CHECK=0 -t ldns -f ./ldns .
+
+# INFO: The goal of ldns is to simplify DNS programming
+# Last push : 28/04/2022 11:25:00
+
+FROM vpolaris/librairies:openssl as openssl
+FROM vpolaris/librairies:devtools as ldns-dependencies
+
+COPY --from=openssl / /
+
+RUN yum -y install \
+    groff \
+    file \
+    krb5-devel \
+    libedit-devel \
+    pam-devel \
+    zlib-devel
+
+FROM ldns-dependencies as ldns-download
+ARG NAME="ldns"
+ARG VERSION="1.8.1"
+ARG SRC_DIRECTORY="/tmp/${NAME}"
+ARG TGT_ARCHIVE="${NAME}.tar.gz"
+ARG SRC_ARCHIVE="${NAME}-${VERSION}.tar.gz"
+ARG WEB_SITE="https://www.nlnetlabs.nl/downloads"
+ARG LDNS_GPG_KEY=DC34EE5DB2417BCC151E5100E5F8F8212F77A498
+
+RUN curl -o "${TGT_ARCHIVE}" "${WEB_SITE}/${NAME}/${SRC_ARCHIVE}" \
+    && curl -o "${TGT_ARCHIVE}.sha256" "${WEB_SITE}/${NAME}/${SRC_ARCHIVE}.sha256" \
+    && SUM="$(cat ${TGT_ARCHIVE}.sha256) ${TGT_ARCHIVE}" \
+    && if [ "$(sha256sum -c <<< $SUM |cut -d':' -f2|xargs)"=="OK" ];then \ 
+             curl -o "${TGT_ARCHIVE}.asc" "${WEB_SITE}/${NAME}/${SRC_ARCHIVE}.asc" \
+            && export GNUPGHOME="$(mktemp -d)" \
+            && gpg --batch --keyserver hkps://keyserver.ubuntu.com --recv-keys "$LDNS_GPG_KEY" \
+            && gpg --batch --verify "${TGT_ARCHIVE}.asc" "${TGT_ARCHIVE}" \
+            && rm -rf "$GNUPGHOME" "${TGT_ARCHIVE}.asc" "${TGT_ARCHIVE}.sha256" \
+            && mkdir -p "${SRC_DIRECTORY}" \
+            && tar -xzC "${SRC_DIRECTORY}" --strip-components=1 -f "${TGT_ARCHIVE}"\
+            && rm "${TGT_ARCHIVE}" \
+            && touch "/etc/compiled_versions/${NAME}.${VERSION}" \
+       ;fi
+
+
+
+
+FROM ldns-download as ldns-compile
+ARG NAME="ldns"
+ARG SRC_DIRECTORY="/tmp/${NAME}"
+ARG TGT_DIRECTORY="/usr/local/${NAME}"
+ARG CHECK=0
+
+RUN cd "${SRC_DIRECTORY}" \
+    && ldconfig \
+    && mkdir -p "${TGT_DIRECTORY}" \
+	&& gnuArch="$(uname -m)-linux-gnu" \
+	&& ./configure \
+        --build="$gnuArch" \
+		--prefix="${TGT_DIRECTORY}"  \
+        --with-pic \
+        --with-gnu-ld \
+        --disable-dane-ta-usage \
+        --disable-static \
+        --with-ssl=/usr/local/ssl \
+    && make -j "$(nproc)" \
+    # && if [ ${CHECK} -eq 1 ];then make test -j "$(nproc)"; fi \
+    && make install \
+    && rm -rf "${SRC_DIRECTORY}" \
+    && echo "${TGT_DIRECTORY}/lib" | tee "/etc/ld.so.conf.d/${NAME}.conf" 
+	# && rm -rf /usr/local//lib/lib.a /usr/local//lib/lib.la \
+	# && rm -rf /usr/local//share/man/man1/-config.1 /usr/local//share/man/man3/_*
+
+FROM scratch
+ARG NAME="ldns"
+ARG TGT_DIRECTORY="/usr/local/${NAME}"
+
+COPY --from=ldns-compile "${TGT_DIRECTORY}" "${TGT_DIRECTORY}"
+COPY --from=ldns-compile "${TGT_DIRECTORY}/bin/" "/usr/bin/"
+COPY --from=ldns-compile "${TGT_DIRECTORY}/lib/pkgconfig/*" "/usr/lib64/pkgconfig/"
+COPY --from=ldns-compile "/etc/compiled_versions" "/etc/compiled_versions"
+COPY --from=ldns-compile "/etc/ld.so.conf.d/${NAME}.conf" "/etc/ld.so.conf.d/${NAME}.conf"
