@@ -44,7 +44,8 @@ RUN mkdir -p "${TGT_DIRECTORY}" \
     && cd "${SRC_DIRECTORY}" \
     && ./bootstrap \
     && ./configure --prefix="${TGT_DIRECTORY}" \
-    && if [ ${CHECK} -eq 1 ];then make check; fi \
+    && MAKEINFO=true make -j "$(nproc)" \
+    && if [ ${CHECK} -eq 1 ];then make check -j "$(nproc)"; fi \
     && make install \
     && echo "/usr/local/${NAME}/lib" | tee "/etc/ld.so.conf.d/${NAME}.conf"
     
